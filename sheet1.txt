@@ -1,0 +1,90 @@
+Option Explicit
+
+Public Sub Color_Regular_Tech_Click()
+    Set_Cell_Color 0 'None
+End Sub
+
+Public Sub Color_Observation_Click()
+    Set_Cell_Color 8 'Turquoise
+End Sub
+
+Public Sub Color_Vacation_Click()
+    Set_Cell_Color 37 'PaleBlue
+End Sub
+
+Public Sub Color_Sick_Click()
+    Set_Cell_Color 46 'Orange
+End Sub
+
+Public Sub Color_ReModel_Click()
+    Set_Cell_Color 39 'Lavender
+End Sub
+
+Public Sub Color_NewTech_Click()
+    Set_Cell_Color 43 'Lime
+End Sub
+
+Public Sub Color_Backup_Click()
+    Set_Cell_Color 6 'Yellow
+End Sub
+
+Public Sub Color_NoTech_TempCoverage_Click()
+    Set_Cell_Color 7 'Pink
+End Sub
+
+Public Sub Color_Red_Alert_Status_Click()
+    Set_Cell_Color 3 'Red
+End Sub
+
+Public Sub Set_Cell_Color(ByVal ColorIndexNum As Integer)
+    
+    Unlock_Sheet
+    If (ColorIndexNum = 0) Then
+        Selection.Interior.Pattern = xlNone
+    Else
+        Selection.Interior.ColorIndex = ColorIndexNum
+    End If
+    
+    Lock_Sheet
+    
+End Sub
+
+Public Sub Unlock_Sheet()
+    
+    ActiveSheet.Unprotect "password"
+    
+End Sub
+
+Public Sub Lock_Sheet()
+
+    ActiveSheet.EnableSelection = xlUnlockedCells
+    ActiveSheet.Protect "password", Contents:=True
+
+End Sub
+
+Public Sub Set_Cells_as_Unlocked()
+    
+    Dim FirstCol, FirstRow, LastCol, LastRow As Long
+    Dim myrange, SupervisorRange, HeaderRowRange As Range
+    
+    Set SupervisorRange = Range("Supervisors")
+    
+    With SupervisorRange
+        FirstCol = .Cells(1, 1).Column
+        LastCol = .Columns(.Columns.Count).Column
+    End With
+    
+    Set HeaderRowRange = Range("Header_Row")
+    
+    With HeaderRowRange
+        FirstRow = .Offset(1).Row
+        LastRow = .End(xlDown).Row
+    End With
+    
+    With Range(Cells(FirstRow, FirstCol), Cells(LastRow, LastCol))
+        .Cells.Locked = False
+        .Value = Evaluate("INDEX(Proper(" & .Address(External:=True) & "),)")
+    End With
+    
+End Sub
+

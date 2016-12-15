@@ -1,0 +1,205 @@
+Option Explicit
+
+Public Sub CreateSupervisorSchedules_Click()
+    
+    Module1.Optimizations "On"
+    Sheet1.Unlock_Sheet
+    Module1.CreateSupervisorSchedules "Angelina"
+    Module1.CreateSupervisorSchedules "Ashley"
+    Module1.CreateSupervisorSchedules "Christie"
+    Module1.CreateSupervisorSchedules "Donna"
+    Module1.CreateSupervisorSchedules "Dorothy"
+    Module1.CreateSupervisorSchedules "Jaice"
+    Module1.CreateSupervisorSchedules "Trisha"
+    Module1.CreateSupervisorSchedules "N-A" ' Do Not Delete - Necessary to Rebuild Master From Supervisor Files
+    
+    Sheet1.Set_Cells_as_Unlocked
+    Sheet1.Lock_Sheet
+    Module1.Optimizations "Off"
+
+End Sub
+
+Public Sub CreateSupervisorSchedules(ByVal SupervisorName As String)
+
+    Dim LastCol, LastRow As Long
+    Dim SupervisorRange, DeleteRange As Range
+    Dim MasterBook, SupervisorBook As Workbook
+    Dim MySheet, SupervisorSheet As Worksheet
+    Dim SupervisorFilePath As String
+    
+    'Set Variables
+    Set MasterBook = ActiveWorkbook
+    Set SupervisorRange = Range("Supervisors")
+    
+    LastCol = SupervisorRange.Columns(SupervisorRange.Columns.Count).Column
+    LastRow = Range("Header_Row").End(xlDown).Row
+    
+    'Copy Master Sheet to New Supervisor Workbook
+    Set SupervisorBook = Workbooks.Add
+    MasterBook.Sheets(1).Copy SupervisorBook.Sheets(1)
+    Set SupervisorSheet = SupervisorBook.Sheets(1)
+    
+    'Add Named Ranges to Supervisor Sheet
+    SupervisorBook.Names.Add "Supervisors", SupervisorSheet.Range(SupervisorRange.Address)
+    SupervisorBook.Names.Add "Header_Row", SupervisorSheet.Range(MasterBook.Sheets(1).Range("Header_Row").Address)
+    
+    'Delete Out Other Supervisor Columns
+    Set DeleteRange = SetRangeofCellsNotEqualToValue(Range("Supervisors"), SupervisorName)
+    DeleteRange.EntireColumn.Delete
+    
+    'Delete Out Any Extra Tabs
+    For Each MySheet In SupervisorBook.Sheets
+        If MySheet.Index > 1 Then
+            MySheet.Delete
+        End If
+    Next
+    
+    'Delete Master Buttons From Supervisor Workbook and Rename Tab
+    With SupervisorSheet
+        .Shapes("MacroGo").Delete
+        .Shapes("MacroFetch").Delete
+        .Name = Left("Service Schedule - " & SupervisorName, 31)
+    End With
+    
+    'Save and Close Supervisor Workbook
+    If SupervisorName = "N-A" Then
+        SupervisorFilePath = "\\corp.keyfloral.com\shared\Common\Field Tech Services\Executive\Service Schedule - N-A Stores.xlsm"
+    Else
+        SupervisorFilePath = "\\corp.keyfloral.com\shared\Common\Field Tech Services\" & SupervisorName & "\Service Schedule - " & SupervisorName & ".xlsm"
+    End If
+    
+    SupervisorBook.SaveAs SupervisorFilePath, xlOpenXMLWorkbookMacroEnabled
+    SupervisorBook.Close False
+    
+End Sub
+
+Public Sub Fetch_Click()
+    
+    Module1.Optimizations "On"
+    Sheet1.Unlock_Sheet
+    Range("Supervisors").EntireColumn.Delete
+    Module1.Fetch "Angelina"
+    Module1.Fetch "Ashley"
+    Module1.Fetch "Christie"
+    Module1.Fetch "Donna"
+    Module1.Fetch "Dorothy"
+    Module1.Fetch "Jaice"
+    Module1.Fetch "Trisha"
+    
+    Dim SupervisorBook As Workbook
+    Set SupervisorBook = ThisWorkbook
+    'Add the Supervisors ragnge
+    SupervisorBook.Names.Add "Supervisors", Range(Range("Supervisor").Offset(, 1), Range("Supervisor").Offset(, 1).End(xlToRight))
+    
+    'Remove the right hand Line from the data range
+    Dim DataRange As Range
+    Set DataRange = Range(Range("Ref").End(xlDown).Offset(0, 1), Range("Supervisors").End(xlToRight).Offset(5, 0))
+    DataRange.Borders(xlEdgeRight).LineStyle = xlNone
+    DataRange.Borders(xlInsideVertical).LineStyle = xlNone
+    
+    'Need to sort all the data with by the Ref#
+    Set DataRange = Range(Range("Ref").End(xlDown).Offset(0, 1), Range("Supervisors").End(xlToRight).Offset(-2, 0)) 'Data with the Headers
+    
+    With Sheets("Master Service Schedule")
+        .Range(DataRange, Selection.End(xlToRight)).Sort _
+        Key1:=.Range("Ref").Offset(0, 1), Order1:=xlAscending, Orientation:=xlLeftToRight
+    End With
+       Range("Ref").Offset(0, 1).Select
+    
+    Sheet1.Set_Cells_as_Unlocked
+    Sheet1.Lock_Sheet
+    Module1.Optimizations "Off"
+
+End Sub
+Sub Fetch(ByVal SupervisorName As String)
+    
+    Dim NewFile As String
+    
+    NewFile = "Service Schedule - " & SupervisorName & ".xlsm"
+    Workbooks.Open Filename:="\\corp.keyfloral.com\shared\Common\Field Tech Services\" & SupervisorName & "\" & NewFile, UpdateLinks:=True
+    Range("Supervisors").EntireColumn.Copy
+    UpdateMaster
+    Workbooks(NewFile).Close SaveChanges:=False
+    
+End Sub
+
+Sub UpdateMaster()
+    Windows("Service Schedule - Master1.xlsm").Activate
+    
+    Dim PasteRange As Range
+    Set PasteRange = Range("Ref").Offset(0, 1)
+    If (Range("Ref").Offset(0, 1).Value) <> "" Then
+        Set PasteRange = Range("Ref").End(xlToRight).Offset(0, 1)
+    End If
+    Columns(PasteRange.Column).Insert
+End Sub
+
+
+Public Sub Optimizations(ByVal OnorOff As String)
+
+    Select Case OnorOff
+            
+        Case "On"
+        
+            Application.ScreenUpdating = False
+            Application.DisplayAlerts = False
+            Application.Calculation = xlCalculationManual
+        
+        Case "Off"
+        
+            Application.Calculation = xlCalculationAutomatic
+            Application.DisplayAlerts = True
+            Application.ScreenUpdating = True
+        
+    End Select
+
+End Sub
+
+Function SetRangeofCellsNotEqualToValue(ByVal RangeToCheck As Range, ValueToKeep As String) As Range
+     
+    Dim myrange As Range
+    Dim Cell As Object
+    
+    For Each Cell In RangeToCheck
+        If Cell.Value <> ValueToKeep Then
+            If myrange Is Nothing Then
+                Set myrange = Range(Cell.Address)
+            Else
+                Set myrange = Union(myrange, Range(Cell.Address))
+            End If
+        End If
+        
+    Next
+    
+    Set SetRangeofCellsNotEqualToValue = myrange
+    
+End Function
+Function SetRangeofCellsEqualToValue(ByVal RangeToCheck As Range, ValueToKeep As String) As Range
+     
+    Dim myrange As Range
+    Dim Cell As Object
+    
+    For Each Cell In RangeToCheck
+        If Cell.Value = ValueToKeep Then
+            If myrange Is Nothing Then
+                Set myrange = Range(Cell.Address)
+            Else
+                Set myrange = Union(myrange, Range(Cell.Address))
+            End If
+        End If
+        
+    Next
+    
+    Set SetRangeofCellsEqualToValue = myrange
+    
+End Function
+
+
+
+
+
+
+
+
+
+
